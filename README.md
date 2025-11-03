@@ -20,5 +20,5 @@ Fill a brief description of this experiment here
 
 SrNo | Name | Faculty or Student | Department| Institute | Email id
 :--|:--|:--|:--|:--|:--|
-1 | Aftab Khan | . | Information Technology | aftabkhan142544@gmail.com | .
+1 | Aftab Khan | . | Information Technology | Rajkiya Engineering College Banda | aftabkhan142544@gmail.com
 2 | . | . | . | . | .
