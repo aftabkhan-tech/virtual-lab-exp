@@ -10,7 +10,7 @@
 
 Fill a brief description of this experiment here
 
-<b>Name of Developer | <b> Fill the name of experiment owner here 
+<b>Name of Developer | <b> Aftab Khan
 :--|:--|
 <b> Rajkiya Engineering College Banda| <b>  
 <b> aftabkhan142544@gmail.com|     <b>  
