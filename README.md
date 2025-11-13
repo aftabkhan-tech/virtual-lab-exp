@@ -18,7 +18,7 @@ Fill a brief description of this experiment here
 
 ### Contributors List
 
-SrNo | Name | Faculty or Student | Department| Institute | Email id
+SrNo | Name | Faculty of Student | Department| Institute | Email id
 :--|:--|:--|:--|:--|:--|
 1 | Aftab Khan | Dr. Ashutosh Tiwari   | Information Technology | Rajkiya Engineering College Banda | aftabkhan142544@gmail.com
 2 | . | . | . | . | .
