@@ -1,7 +1,7 @@
 ## Introduction
 
 
-<b>Discipline | <b>information Technology
+<b>Discipline | <b>Information Technology
 :--|:--|
 <b> Lab | <b> Virtual Lab
 <b> Experiment|Add a registance box with interective knobs. Students can adjust the registance and see the effect on the galvanometer.     <b> 
