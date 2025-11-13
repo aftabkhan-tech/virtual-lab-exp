@@ -13,7 +13,7 @@ Fill a brief description of this experiment here
 <b>Name of Developer | <b> Dr. Ashutosh Tiwari
 :--|:--|
 <b> Rajkiya Engineering College Banda| <b>  
-<b> aftabkhan142544@gmail.com|     <b>  
+<b> |     <b>  
 <b> Information Technology |  
 
 ### Contributors List
