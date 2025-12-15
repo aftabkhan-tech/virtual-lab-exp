@@ -12,7 +12,7 @@ Fill a brief description of this experiment here
 
 <b>Name of Developer | <b> Dr. Ashutosh Tiwari
 :--|:--|
-<b> Institute| <b> |<b>REC Banda  
+<b> Institute  |<b>REC Banda  
 <b> |     <b>  
 <b> Department |  <b> Information Technology
 
