@@ -12,9 +12,9 @@ Fill a brief description of this experiment here
 
 <b>Name of Developer | <b> Dr. Ashutosh Tiwari
 :--|:--|
-<b> Rajkiya Engineering College Banda| <b>  
+<b> Institute| <b> |Rajkiya Engineering College Banda  
 <b> |     <b>  
-<b> Information Technology |  
+<b> Department |  <b> Information Technology
 
 ### Contributors List
 
