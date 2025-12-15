@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Resistance Box Lab</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: sans-serif; }
+        
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #555;
+            pointer-events: none; /* Allows clicking through to the 3D scene */
+            user-select: none;
+        }
+
+        h2 { margin: 0 0 10px 0; color: #4db8ff; font-size: 1.2rem; }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 5px; min-width: 200px; }
+        .label { color: #aaa; }
+        .value { color: #ffeb3b; font-weight: bold; font-family: monospace; }
+        
+        #controls-help {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+            font-size: 0.85rem;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h2>Ohm's Law Lab</h2>
+        <div class="data-row">
+            <span class="label">Voltage (V):</span>
+            <span class="value">10.0 V</span>
+        </div>
+        <div class="data-row">
+            <span class="label">Resistance (R):</span>
+            <span id="res-value" class="value">10 &Omega;</span>
+        </div>
+        <div class="data-row">
+            <span class="label">Current (I):</span>
+            <span id="curr-value" class="value">1.00 A</span>
+        </div>
+        
+        <div id="controls-help">
+            <strong>Controls:</strong><br>
+            • 🖱️ <strong>Left Click / Tap</strong> knob to Rotate (+)<br>
+            • 🖱️ <strong>Right Click</strong> knob to Reset (0)<br>
+            • Drag background to move camera
+        </div>
+    </div>
+
+    <!-- Container for Three.js -->
+    <div id="canvas-wrapper" style="width: 100vw; height: 100vh;"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. Setup Scene ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x222222);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 12, 18);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        
+        const canvasContainer = document.getElementById('canvas-wrapper');
+        canvasContainer.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxPolarAngle = Math.PI / 2; // Don't go below ground
+
+        // --- 2. Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(5, 15, 10);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // --- 3. Materials ---
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b });
+        const plasticMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+        const plasticHoverMat = new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0x222222 }); // Lighter when hovered
+        const metalMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.2 });
+        const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const redMat = new THREE.MeshBasicMaterial({ color: 0xff3333 });
+
+        // --- 4. Objects ---
+        
+        // Table
+        const table = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+        table.rotation.x = -Math.PI / 2;
+        table.receiveShadow = true;
+        scene.add(table);
+
+        // Resistance Box
+        const boxGroup = new THREE.Group();
+        const boxBase = new THREE.Mesh(new THREE.BoxGeometry(9, 2, 4), woodMat);
+        boxBase.position.y = 1;
+        boxBase.castShadow = true;
+        boxGroup.add(boxBase);
+        scene.add(boxGroup);
+
+        // Knobs Storage
+        const interactables = []; 
+
+        function createKnob(x, multiplier, label) {
+            const knobGroup = new THREE.Group();
+            knobGroup.position.set(x, 2, 0);
+
+            // Metal Base
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.2, 32), metalMat);
+            knobGroup.add(base);
+
+            // Rotating Dial (The interactive part)
+            const dialGeo = new THREE.CylinderGeometry(0.65, 0.7, 0.7, 32);
+            const dial = new THREE.Mesh(dialGeo, plasticMat.clone()); // Clone to allow individual highlighting
+            dial.position.y = 0.45;
+            dial.castShadow = true;
+            
+            // Indicator Line
+            const indGeo = new THREE.BoxGeometry(0.1, 0.05, 0.8);
+            const ind = new THREE.Mesh(indGeo, whiteMat);
+            ind.position.set(0, 0.81, 0); // Top of dial
+            
+            // Wrapper for rotation
+            const rotator = new THREE.Group();
+            rotator.add(dial);
+            rotator.add(ind);
+
+            // Metadata for Logic
+            rotator.userData = {
+                isKnob: true,
+                multiplier: multiplier,
+                value: 0,
+                mesh: dial // Reference to mesh for color change
+            };
+
+            knobGroup.add(rotator);
+            interactables.push(rotator);
+            boxGroup.add(knobGroup);
+
+            // Simple 3D Text Label (using Sprites for clarity/performance)
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 128; canvas.height = 64;
+            ctx.font = "bold 40px Arial";
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.fillText(label, 64, 50);
+            const tex = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: tex });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.position.set(x, 2.5, 1.5);
+            sprite.scale.set(2, 1, 1);
+            boxGroup.add(sprite);
+        }
+
+        createKnob(-2.5, 100, "x100");
+        createKnob(0, 10, "x10");
+        createKnob(2.5, 1, "x1");
+
+        // Galvanometer
+        const galvoGroup = new THREE.Group();
+        galvoGroup.position.set(0, 0, -5);
+        
+        const gBody = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 1, 32), plasticMat);
+        gBody.rotation.x = -0.4;
+        gBody.position.y = 1.2;
+        galvoGroup.add(gBody);
+        
+        const gFace = new THREE.Mesh(new THREE.CircleGeometry(2.2, 32), whiteMat);
+        gFace.rotation.x = -0.4; // Same tilt
+        gFace.position.set(0, 1.71, 0.2); // Slightly above body center
+        galvoGroup.add(gFace);
+
+        // Needle Pivot
+        const pivot = new THREE.Group();
+        pivot.position.set(0, 1.71, 0.2);
+        pivot.rotation.x = -0.4; // Align with face
+        galvoGroup.add(pivot);
+
+        const needle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.8, 0.05), redMat);
+        needle.position.y = 0.6; // Offset so it rotates from bottom
+        needle.position.z = 0.05;
+        pivot.add(needle);
+
+        scene.add(galvoGroup);
+
+        // Wires
+        function addWire(p1, p2) {
+            const curve = new THREE.LineCurve3(p1, p2);
+            const geo = new THREE.TubeGeometry(curve, 1, 0.04, 8, false);
+            const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
+            scene.add(mesh);
+        }
+        addWire(new THREE.Vector3(0, 1, -2), new THREE.Vector3(0, 1.2, -3.5)); // Box to Galvo
+
+        // --- 5. Logic & Interaction ---
+        
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let hoveredObj = null;
+
+        // Helper to get precise mouse position
+        function updateMouse(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        }
+
+        // 1. Mouse Move (Hover Effect)
+        window.addEventListener('mousemove', (event) => {
+            updateMouse(event);
+            raycaster.setFromCamera(mouse, camera);
+
+            // Intersect recursively
+            const intersects = raycaster.intersectObjects(interactables, true);
+
+            if (intersects.length > 0) {
+                // Find the parent group that is the "Knob"
+                let obj = intersects[0].object;
+                while (obj.parent && !obj.userData.isKnob) {
+                    obj = obj.parent;
+                }
+
+                if (obj.userData.isKnob) {
+                    // Change cursor
+                    document.body.style.cursor = 'pointer';
+                    
+                    // Highlight logic
+                    if (hoveredObj !== obj) {
+                        if (hoveredObj) hoveredObj.userData.mesh.material.emissive.setHex(0x000000); // Reset prev
+                        hoveredObj = obj;
+                        hoveredObj.userData.mesh.material.emissive.setHex(0x444444); // Glow
+                    }
+                    return;
+                }
+            }
+
+            // If nothing hit
+            document.body.style.cursor = 'default';
+            if (hoveredObj) {
+                hoveredObj.userData.mesh.material.emissive.setHex(0x000000);
+                hoveredObj = null;
+            }
+        });
+
+        // 2. Click (Interaction)
+        window.addEventListener('pointerdown', (event) => {
+            if (hoveredObj) {
+                // Determine action: Left click (0) or Touch vs Right click (2)
+                if (event.button === 2) {
+                    // Right click: Reset
+                    hoveredObj.userData.value = 0;
+                } else {
+                    // Left click: Increment
+                    hoveredObj.userData.value = (hoveredObj.userData.value + 1) % 10;
+                }
+
+                // Rotate visual
+                // 1 step = 36 degrees (2*PI / 10)
+                const targetRot = -(hoveredObj.userData.value * (Math.PI * 2 / 10));
+                hoveredObj.rotation.y = targetRot;
+
+                updateCircuit();
+            }
+        });
+
+        // Prevent context menu on right click
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Circuit Logic
+        let targetAngle = Math.PI / 3; // Start Left
+
+        function updateCircuit() {
+            let totalR = 0;
+            interactables.forEach(knob => {
+                totalR += knob.userData.value * knob.userData.multiplier;
+            });
+
+            // Prevent divide by zero (Internal resistance assumed 10)
+            const internalR = 10;
+            const voltage = 10;
+            const current = voltage / (totalR + internalR);
+
+            // Update DOM
+            document.getElementById('res-value').innerText = totalR + " \u2126";
+            document.getElementById('curr-value').innerText = current.toFixed(3) + " A";
+
+            // Map Current to Angle
+            // Max current (R=0) = 1A. Min current -> 0A
+            // Angle range: +60 deg (left) to -60 deg (right)
+            const minAngle = Math.PI / 2.5;  // Resting position (Left)
+            const maxAngle = -Math.PI / 2.5; // Max Deflection (Right)
+            
+            const maxCurrent = voltage / internalR; // 1.0
+            const ratio = current / maxCurrent;
+
+            targetAngle = minAngle + (ratio * (maxAngle - minAngle));
+        }
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // Smooth needle movement
+            const speed = 0.1;
+            pivot.rotation.z += (targetAngle - pivot.rotation.z) * speed;
+
+            renderer.render(scene, camera);
+        }
+
+        // Initialize
+        updateCircuit();
+        animate();
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
