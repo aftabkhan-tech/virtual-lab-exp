@@ -10,7 +10,7 @@
 
 Fill a brief description of this experiment here
 
-<b>Name of Developer | <b> Dr. Ashutosh Tiwari
+<b>Name of Developer | <b> Aftab Khan 
 :--|:--|
 <b> Institute  |<b>REC Banda  
 <b> |     <b>  
