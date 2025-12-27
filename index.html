@@ -1,353 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Resistance Box Lab</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: sans-serif; }
-        
-        #ui-container {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #555;
-            pointer-events: none; /* Allows clicking through to the 3D scene */
-            user-select: none;
-        }
-
-        h2 { margin: 0 0 10px 0; color: #4db8ff; font-size: 1.2rem; }
-        .data-row { display: flex; justify-content: space-between; margin-bottom: 5px; min-width: 200px; }
-        .label { color: #aaa; }
-        .value { color: #ffeb3b; font-weight: bold; font-family: monospace; }
-        
-        #controls-help {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #444;
-            font-size: 0.85rem;
-            color: #ccc;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Ohm's Law Lab - Upper Scale</title>
+<style>
+body{margin:0;background:#111;overflow:hidden;font-family:sans-serif}
+#ui{position:absolute;top:20px;left:20px;background:rgba(0,0,0,0.8);color:#fff;padding:20px;border-radius:10px;border:1px solid #444;pointer-events:none;min-width:180px}
+.val{color:#00ff00;font-family:monospace;font-size:1.2rem;float:right}
+.row{margin-bottom:10px;border-bottom:1px solid #222;padding-bottom:5px}
+</style>
 </head>
 <body>
 
-    <div id="ui-container">
-        <h2>Ohm's Law Lab</h2>
-        <div class="data-row">
-            <span class="label">Voltage (V):</span>
-            <span class="value">10.0 V</span>
-        </div>
-        <div class="data-row">
-            <span class="label">Resistance (R):</span>
-            <span id="res-value" class="value">10 &Omega;</span>
-        </div>
-        <div class="data-row">
-            <span class="label">Current (I):</span>
-            <span id="curr-value" class="value">1.00 A</span>
-        </div>
+<div id="ui">
+    <div class="row">Voltage: <span class="val">10 V</span></div>
+    <div class="row">Box R: <span id="r-box" class="val">0 Ω</span></div>
+    <div class="row">Total R: <span id="r-total" class="val">10 Ω</span></div>
+    <div class="row" style="border:none">Current: <span id="curr" class="val" style="color:#ffee55">1.00 A</span></div>
+</div>
+
+<script type="importmap">
+{"imports": {"three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 10, 15);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(5, 10, 7);
+scene.add(sun);
+
+// --- Materials ---
+const wood = new THREE.MeshStandardMaterial({color: 0x4a2c1d});
+const metal = new THREE.MeshStandardMaterial({color: 0xaaaaaa, metalness: 0.8});
+const plastic = new THREE.MeshStandardMaterial({color: 0x222222});
+
+// --- Resistance Box ---
+const box = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 4), wood);
+box.position.y = 1;
+scene.add(box);
+
+const knobs = [];
+function createKnob(x, multi) {
+    const group = new THREE.Group();
+    group.position.set(x, 2, 0);
+    
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.5, 32), plastic);
+    const pointer = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.4), new THREE.MeshBasicMaterial({color: 0xffffff}));
+    pointer.position.set(0, 0.26, -0.4);
+    
+    const pivot = new THREE.Group();
+    pivot.add(body, pointer);
+    pivot.userData = { value: 0, multi: multi };
+    
+    group.add(pivot);
+    scene.add(group);
+    knobs.push(pivot);
+}
+createKnob(-2.5, 100); createKnob(0, 10); createKnob(2.5, 1);
+
+// --- Ammeter (Galvanometer) ---
+const ammeter = new THREE.Group();
+ammeter.position.set(0, 0, -6);
+
+// Body
+const base = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 2), plastic);
+base.position.y = 3;
+ammeter.add(base);
+
+// Scale Face
+const canvas = document.createElement('canvas');
+canvas.width = 1024; canvas.height = 1024;
+const ctx = canvas.getContext('2d');
+
+// Draw Scale in 0 to PI region (Top Half)
+const cx = 512, cy = 600, radius = 400;
+ctx.strokeStyle = "black";
+ctx.fillStyle = "black";
+ctx.textAlign = "center";
+ctx.lineCap = "round";
+
+// Background face
+ctx.fillStyle = "white";
+ctx.beginPath(); ctx.arc(cx, cy, radius + 100, 0, Math.PI, true);
+ctx.fill();
+
+// Main Arc
+ctx.lineWidth = 5;
+ctx.beginPath(); ctx.arc(cx, cy, radius, Math.PI, 0); ctx.stroke();
+
+// Marks 0 to 1.0
+for (let i = 0; i <= 10; i++) {
+    const val = i / 10;
+    // Map val 0->1 to Angle PI -> 0
+    const angle = Math.PI - (val * Math.PI);
+    
+    const x1 = cx + radius * Math.cos(angle);
+    const y1 = cy - radius * Math.sin(angle);
+    const x2 = cx + (radius + 40) * Math.cos(angle);
+    const y2 = cy - (radius + 40) * Math.sin(angle);
+    
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    
+    // Labels
+    ctx.font = "bold 45px Arial";
+    const lx = cx + (radius + 80) * Math.cos(angle);
+    const ly = cy - (radius + 80) * Math.sin(angle);
+    ctx.fillText(val.toFixed(1), lx, ly + 15);
+}
+
+// Fine increments (0.02)
+for (let i = 0; i <= 50; i++) {
+    const angle = Math.PI - (i / 50 * Math.PI);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + radius * Math.cos(angle), cy - radius * Math.sin(angle));
+    ctx.lineTo(cx + (radius + 20) * Math.cos(angle), cy - (radius + 20) * Math.sin(angle));
+    ctx.stroke();
+}
+
+ctx.font = "40px Arial";
+ctx.fillText("AMPERES (A)", cx, cy - 200);
+
+const texture = new THREE.CanvasTexture(canvas);
+const faceGeo = new THREE.PlaneGeometry(7, 5);
+const faceMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+const face = new THREE.Mesh(faceGeo, faceMat);
+face.position.set(0, 3.5, 1.01);
+ammeter.add(face);
+
+// Needle
+const needlePivot = new THREE.Group();
+needlePivot.position.set(0, 0.6, 1.05); // Centered relative to the arc on face
+ammeter.add(needlePivot);
+
+const needleMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 4.5, 0.01),
+    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+);
+needleMesh.position.y = 2.25; // Offset so it rotates around its base
+needlePivot.add(needleMesh);
+
+scene.add(ammeter);
+
+// --- Simulation Logic ---
+let targetAngle = Math.PI / 2; // Default to 1.0A (vertical for math circle is PI/2)
+
+function updateSimulation() {
+    let rBox = 0;
+    knobs.forEach(k => rBox += k.userData.value * k.userData.multi);
+    
+    const voltage = 10;
+    const rInternal = 10;
+    const rTotal = rBox + rInternal;
+    const current = voltage / rTotal; // Max is 1.0 when rBox is 0
+
+    document.getElementById('r-box').innerText = rBox + " Ω";
+    document.getElementById('r-total').innerText = rTotal + " Ω";
+    document.getElementById('curr').innerText = current.toFixed(3) + " A";
+
+    // MAPPING:
+    // Current 0.0 -> Angle PI (Left)
+    // Current 1.0 -> Angle 0 (Right)
+    // Formula: PI - (current * PI)
+    // However, Three.js Z rotation 0 is UP. 
+    // To match the canvas:
+    // Current 0.0 -> +90 deg (Left)
+    // Current 1.0 -> -90 deg (Right)
+    targetAngle = (Math.PI / 2) - (current * Math.PI);
+}
+
+// --- Interaction ---
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+window.addEventListener('mousedown', (event) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    
+    const intersects = raycaster.intersectObjects(knobs, true);
+    if (intersects.length > 0) {
+        let knob = intersects[0].object;
+        while(knob.parent && !knob.userData.multi) knob = knob.parent;
         
-        <div id="controls-help">
-            <strong>Controls:</strong><br>
-            • 🖱️ <strong>Left Click / Tap</strong> knob to Rotate (+)<br>
-            • 🖱️ <strong>Right Click</strong> knob to Reset (0)<br>
-            • Drag background to move camera
-        </div>
-    </div>
+        knob.userData.value = (knob.userData.value + 1) % 10;
+        knob.rotation.y = -(knob.userData.value * (Math.PI * 2 / 10));
+        updateSimulation();
+    }
+});
 
-    <!-- Container for Three.js -->
-    <div id="canvas-wrapper" style="width: 100vw; height: 100vh;"></div>
+function animate() {
+    requestAnimationFrame(animate);
+    // Smooth magnetic damping for needle
+    needlePivot.rotation.z += (targetAngle - needlePivot.rotation.z) * 0.1;
+    controls.update();
+    renderer.render(scene, camera);
+}
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+updateSimulation();
+animate();
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-        // --- 1. Setup Scene ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x222222);
-
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 12, 18);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        
-        const canvasContainer = document.getElementById('canvas-wrapper');
-        canvasContainer.appendChild(renderer.domElement);
-
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.maxPolarAngle = Math.PI / 2; // Don't go below ground
-
-        // --- 2. Lighting ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
-
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(5, 15, 10);
-        dirLight.castShadow = true;
-        scene.add(dirLight);
-
-        // --- 3. Materials ---
-        const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b });
-        const plasticMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
-        const plasticHoverMat = new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0x222222 }); // Lighter when hovered
-        const metalMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.2 });
-        const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const redMat = new THREE.MeshBasicMaterial({ color: 0xff3333 });
-
-        // --- 4. Objects ---
-        
-        // Table
-        const table = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-        table.rotation.x = -Math.PI / 2;
-        table.receiveShadow = true;
-        scene.add(table);
-
-        // Resistance Box
-        const boxGroup = new THREE.Group();
-        const boxBase = new THREE.Mesh(new THREE.BoxGeometry(9, 2, 4), woodMat);
-        boxBase.position.y = 1;
-        boxBase.castShadow = true;
-        boxGroup.add(boxBase);
-        scene.add(boxGroup);
-
-        // Knobs Storage
-        const interactables = []; 
-
-        function createKnob(x, multiplier, label) {
-            const knobGroup = new THREE.Group();
-            knobGroup.position.set(x, 2, 0);
-
-            // Metal Base
-            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.2, 32), metalMat);
-            knobGroup.add(base);
-
-            // Rotating Dial (The interactive part)
-            const dialGeo = new THREE.CylinderGeometry(0.65, 0.7, 0.7, 32);
-            const dial = new THREE.Mesh(dialGeo, plasticMat.clone()); // Clone to allow individual highlighting
-            dial.position.y = 0.45;
-            dial.castShadow = true;
-            
-            // Indicator Line
-            const indGeo = new THREE.BoxGeometry(0.1, 0.05, 0.8);
-            const ind = new THREE.Mesh(indGeo, whiteMat);
-            ind.position.set(0, 0.81, 0); // Top of dial
-            
-            // Wrapper for rotation
-            const rotator = new THREE.Group();
-            rotator.add(dial);
-            rotator.add(ind);
-
-            // Metadata for Logic
-            rotator.userData = {
-                isKnob: true,
-                multiplier: multiplier,
-                value: 0,
-                mesh: dial // Reference to mesh for color change
-            };
-
-            knobGroup.add(rotator);
-            interactables.push(rotator);
-            boxGroup.add(knobGroup);
-
-            // Simple 3D Text Label (using Sprites for clarity/performance)
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 128; canvas.height = 64;
-            ctx.font = "bold 40px Arial";
-            ctx.fillStyle = "white";
-            ctx.textAlign = "center";
-            ctx.fillText(label, 64, 50);
-            const tex = new THREE.CanvasTexture(canvas);
-            const spriteMat = new THREE.SpriteMaterial({ map: tex });
-            const sprite = new THREE.Sprite(spriteMat);
-            sprite.position.set(x, 2.5, 1.5);
-            sprite.scale.set(2, 1, 1);
-            boxGroup.add(sprite);
-        }
-
-        createKnob(-2.5, 100, "x100");
-        createKnob(0, 10, "x10");
-        createKnob(2.5, 1, "x1");
-
-        // Galvanometer
-        const galvoGroup = new THREE.Group();
-        galvoGroup.position.set(0, 0, -5);
-        
-        const gBody = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 1, 32), plasticMat);
-        gBody.rotation.x = -0.4;
-        gBody.position.y = 1.2;
-        galvoGroup.add(gBody);
-        
-        const gFace = new THREE.Mesh(new THREE.CircleGeometry(2.2, 32), whiteMat);
-        gFace.rotation.x = -0.4; // Same tilt
-        gFace.position.set(0, 1.71, 0.2); // Slightly above body center
-        galvoGroup.add(gFace);
-
-        // Needle Pivot
-        const pivot = new THREE.Group();
-        pivot.position.set(0, 1.71, 0.2);
-        pivot.rotation.x = -0.4; // Align with face
-        galvoGroup.add(pivot);
-
-        const needle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.8, 0.05), redMat);
-        needle.position.y = 0.6; // Offset so it rotates from bottom
-        needle.position.z = 0.05;
-        pivot.add(needle);
-
-        scene.add(galvoGroup);
-
-        // Wires
-        function addWire(p1, p2) {
-            const curve = new THREE.LineCurve3(p1, p2);
-            const geo = new THREE.TubeGeometry(curve, 1, 0.04, 8, false);
-            const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
-            scene.add(mesh);
-        }
-        addWire(new THREE.Vector3(0, 1, -2), new THREE.Vector3(0, 1.2, -3.5)); // Box to Galvo
-
-        // --- 5. Logic & Interaction ---
-        
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        let hoveredObj = null;
-
-        // Helper to get precise mouse position
-        function updateMouse(event) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        }
-
-        // 1. Mouse Move (Hover Effect)
-        window.addEventListener('mousemove', (event) => {
-            updateMouse(event);
-            raycaster.setFromCamera(mouse, camera);
-
-            // Intersect recursively
-            const intersects = raycaster.intersectObjects(interactables, true);
-
-            if (intersects.length > 0) {
-                // Find the parent group that is the "Knob"
-                let obj = intersects[0].object;
-                while (obj.parent && !obj.userData.isKnob) {
-                    obj = obj.parent;
-                }
-
-                if (obj.userData.isKnob) {
-                    // Change cursor
-                    document.body.style.cursor = 'pointer';
-                    
-                    // Highlight logic
-                    if (hoveredObj !== obj) {
-                        if (hoveredObj) hoveredObj.userData.mesh.material.emissive.setHex(0x000000); // Reset prev
-                        hoveredObj = obj;
-                        hoveredObj.userData.mesh.material.emissive.setHex(0x444444); // Glow
-                    }
-                    return;
-                }
-            }
-
-            // If nothing hit
-            document.body.style.cursor = 'default';
-            if (hoveredObj) {
-                hoveredObj.userData.mesh.material.emissive.setHex(0x000000);
-                hoveredObj = null;
-            }
-        });
-
-        // 2. Click (Interaction)
-        window.addEventListener('pointerdown', (event) => {
-            if (hoveredObj) {
-                // Determine action: Left click (0) or Touch vs Right click (2)
-                if (event.button === 2) {
-                    // Right click: Reset
-                    hoveredObj.userData.value = 0;
-                } else {
-                    // Left click: Increment
-                    hoveredObj.userData.value = (hoveredObj.userData.value + 1) % 10;
-                }
-
-                // Rotate visual
-                // 1 step = 36 degrees (2*PI / 10)
-                const targetRot = -(hoveredObj.userData.value * (Math.PI * 2 / 10));
-                hoveredObj.rotation.y = targetRot;
-
-                updateCircuit();
-            }
-        });
-
-        // Prevent context menu on right click
-        window.addEventListener('contextmenu', e => e.preventDefault());
-
-        // Circuit Logic
-        let targetAngle = Math.PI / 3; // Start Left
-
-        function updateCircuit() {
-            let totalR = 0;
-            interactables.forEach(knob => {
-                totalR += knob.userData.value * knob.userData.multiplier;
-            });
-
-            // Prevent divide by zero (Internal resistance assumed 10)
-            const internalR = 10;
-            const voltage = 10;
-            const current = voltage / (totalR + internalR);
-
-            // Update DOM
-            document.getElementById('res-value').innerText = totalR + " \u2126";
-            document.getElementById('curr-value').innerText = current.toFixed(3) + " A";
-
-            // Map Current to Angle
-            // Max current (R=0) = 1A. Min current -> 0A
-            // Angle range: +60 deg (left) to -60 deg (right)
-            const minAngle = Math.PI / 2.5;  // Resting position (Left)
-            const maxAngle = -Math.PI / 2.5; // Max Deflection (Right)
-            
-            const maxCurrent = voltage / internalR; // 1.0
-            const ratio = current / maxCurrent;
-
-            targetAngle = minAngle + (ratio * (maxAngle - minAngle));
-        }
-
-        // Animation Loop
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-
-            // Smooth needle movement
-            const speed = 0.1;
-            pivot.rotation.z += (targetAngle - pivot.rotation.z) * speed;
-
-            renderer.render(scene, camera);
-        }
-
-        // Initialize
-        updateCircuit();
-        animate();
-
-        // Handle Window Resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-    </script>
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
 </body>
 </html>
